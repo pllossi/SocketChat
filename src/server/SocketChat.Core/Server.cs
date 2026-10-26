@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Microsoft.VisualBasic;
 
 namespace SocketChat.Core;
 
@@ -8,19 +9,34 @@ public class Server
 {
     public int Port
     {
-        get; 
+        get;
         private set;
     }
-    public string HostName { 
-        get; 
-        private set; 
+    public string HostName
+    {
+        get;
+        private set;
     }
     private Socket listener;
-    private Socket clientHandeler;
+    private List<Socket> clientHandeler;
     private byte[] buffer;
-    public bool IsClientConnected => clientHandeler is not null && clientHandeler.Connected;
-
-    public Server(string hostName,int port)
+    public List<bool> IsClientConnected()
+    {
+        var resp = new List<bool>();
+        if (clientHandeler is null)
+        {
+            resp.Add(false);
+        }
+        else
+        {
+            foreach (var recv in clientHandeler)
+            {
+                resp.Add(recv.Connected);
+            }
+        }
+        return resp;
+    }
+    public Server(string hostName, int port)
     {
         Port = port;
         HostName = hostName;
@@ -29,7 +45,7 @@ public class Server
     public void Start()
     {
         var hostIp = Dns.GetHostEntry(HostName).AddressList.First();
-        var localendpoint = new IPEndPoint(hostIp,Port);
+        var localendpoint = new IPEndPoint(hostIp, Port);
         listener = new Socket(
             hostIp.AddressFamily,
             SocketType.Stream,
@@ -39,27 +55,33 @@ public class Server
         listener.Bind(localendpoint);
         listener.Listen(10);
 
-        clientHandeler = listener.Accept();
+        clientHandeler.Add(listener.Accept());
 
     }
 
     public void StartListeningAsync(Action<string> onMessageRecived)
     {
-        Task.Run(() =>
+        for (int i = 0; i < clientHandeler.Count; i++)
         {
-            this.buffer = new byte[1024];
-            while (IsClientConnected)
+            var client = clientHandeler[i];
+            Task.Run(() =>
             {
-                int recivedBytes = this.clientHandeler.Receive(this.buffer);
-                if (recivedBytes == 0)
+                this.buffer = new byte[1024];
+                while (client.Connected)
                 {
-                    return;
+                    int recivedBytes = client.Receive(this.buffer);
+                    if (recivedBytes == 0)
+                    {
+                        return;
+                    }
+                    string decodedMSG = Encoding.UTF8.GetString(this.buffer, 0, recivedBytes);
+                    onMessageRecived(decodedMSG);
+                    sendMessageToOthers(decodedMSG, client);
                 }
-                string decodedMSG = Encoding.UTF8.GetString(this.buffer,0,recivedBytes);
-                onMessageRecived(decodedMSG);
-            }
-        });        
+            });
+        }
     }
+    /*
     public bool TrySendMessage(string msg)
     {
         if (!IsClientConnected)
@@ -68,10 +90,31 @@ public class Server
         }
         byte[] raw = Encoding.UTF8.GetBytes(msg);
         int sent = clientHandeler.Send(raw);
-        if(sent == raw.Length)
+        if (sent == raw.Length)
         {
-           return true; 
+            return true;
         }
         return false;
+    }*/
+
+    private void sendMessageToOthers(string msg, Socket sender)
+    {
+        foreach (var recv in clientHandeler)
+        {
+            if (recv is null)
+            {
+                break;
+            }
+            if (recv == sender)
+            {
+                break;
+            }
+            byte[] raw = Encoding.UTF8.GetBytes(msg);
+            int sent = recv.Send(raw);
+            while (sent != raw.Length)
+            {
+
+            }
+        }
     }
 }
