@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using SocketChat.Core;
+using System.Text;
 
 namespace SocketChat.GUI;
 
@@ -28,7 +29,7 @@ public class Program
             Environment.Exit(1);
         }
 
-        client.StartListeningAsync((message) => Console.WriteLine("[From server] " + message));
+        client.StartListeningAsync((message) => Console.WriteLine(message));
 
         bool keepGoing = true;
 
@@ -40,7 +41,14 @@ public class Program
                 bool resp = client.TrySendMessage(message);
                 if (resp)
                 {
-                    Console.WriteLine("[Client] " + message);
+                    byte[] raw = Encoding.UTF8.GetBytes(message);
+                    Console.WriteLine(message);
+                    string byt = "";
+                    foreach(var value in raw)
+                    {
+                        byt += value;
+                    }
+                    Console.WriteLine("Bytes : " + byt);
                 }
             }
             keepGoing = message != "exit";

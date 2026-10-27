@@ -22,22 +22,9 @@ public class Program
         var server = new Server(host,port);
         server.Start();
 
-        server.StartListeningAsync((message) => Console.WriteLine("[From client] " + message));
-
-        bool keepGoing = true;
-
-        while(keepGoing && server.IsClientConnected)
+        while (true)
         {
-            var message = Console.ReadLine();
-            if (!string.IsNullOrEmpty(message))
-            {
-                bool resp = server.TrySendMessage(message);
-                if (resp)
-                {
-                    Console.WriteLine("[Server] " + message);
-                }
-            }
-            keepGoing = message != "exit";
-        }
+            server.StartListeningAsync((message) => Console.WriteLine("[From client] " + message));
+        }    
     }
 }

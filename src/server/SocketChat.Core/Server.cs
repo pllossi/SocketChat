@@ -18,7 +18,7 @@ public class Server
         private set;
     }
     private Socket listener;
-    private List<Socket> clientHandeler;
+    private List<Socket> clientHandeler = new List<Socket>();
     private byte[] buffer;
     public List<bool> IsClientConnected()
     {
@@ -51,11 +51,16 @@ public class Server
             SocketType.Stream,
             ProtocolType.Tcp
         );
-
         listener.Bind(localendpoint);
         listener.Listen(10);
+        Task.Run(() =>
+        {
 
-        clientHandeler.Add(listener.Accept());
+            while (true)
+            {
+                clientHandeler.Add(listener.Accept());
+            }
+        });
 
     }
 
@@ -74,9 +79,14 @@ public class Server
                     {
                         return;
                     }
-                    string decodedMSG = Encoding.UTF8.GetString(this.buffer, 0, recivedBytes);
-                    onMessageRecived(decodedMSG);
-                    sendMessageToOthers(decodedMSG, client);
+                    var msgs = "";
+                    foreach(var num in buffer)
+                    {
+                        msgs += num;
+                    }
+                    //string decodedMSG = Encoding.UTF8.GetString(this.buffer, 0, recivedBytes);
+                    onMessageRecived(msgs);
+                    //sendMessageToOthers(decodedMSG, client, i);
                 }
             });
         }
@@ -97,24 +107,28 @@ public class Server
         return false;
     }*/
 
-    private void sendMessageToOthers(string msg, Socket sender)
+    private void sendMessageToOthers(string msg, Socket sender, int pos)
     {
-        foreach (var recv in clientHandeler)
+        Task.Run(() =>
         {
-            if (recv is null)
+            foreach (var recv in clientHandeler)
             {
-                break;
+                if (recv is null)
+                {
+                    break;
+                }
+                if (recv != sender)
+                {
+                    string toBytes = "[From Client i]" + ": " + msg;
+                    byte[] raw = Encoding.UTF8.GetBytes(toBytes);
+                    int sent = recv.Send(raw);
+                    while (sent != raw.Length)
+                    {
+                        sent = recv.Send(raw);
+                    }
+                }
             }
-            if (recv == sender)
-            {
-                break;
-            }
-            byte[] raw = Encoding.UTF8.GetBytes(msg);
-            int sent = recv.Send(raw);
-            while (sent != raw.Length)
-            {
+        });
 
-            }
-        }
     }
 }
